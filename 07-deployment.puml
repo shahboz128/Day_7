@@ -1,0 +1,50 @@
+@startuml deployment
+title notary-queue: диаграммаи ҷойгиркунӣ
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam nodeFontSize 13
+
+node "Дастгоҳи муроҷиатқунанда\n(компютер / телефон)" as client_dev {
+    artifact "Браузер\n(Chrome / Firefox / Edge / Safari)" as browser_client
+}
+
+node "Идораи нотариалӣ" as office {
+    node "Компютери оператор / нотариус" as op_pc {
+        artifact "Браузер\n(панели корӣ)" as browser_staff
+    }
+    node "Киоски сенсорӣ (талон)" as kiosk {
+        artifact "Браузер дар режими киоск" as browser_kiosk
+    }
+    node "Экрани навбат (телевизор)" as tv {
+        artifact "Браузер\n(тахтаи навбат)" as browser_tv
+    }
+}
+
+node "Linux VDS (Ubuntu 24.04)" as vds {
+    node "Nginx 1.24" as nginx {
+        artifact "deploy/nginx.conf\n(TLS, статика)" as nconf
+    }
+    node "PHP-FPM 8.2" as fpm {
+        artifact "notary-queue/\n(public/, src/, views/)" as app
+        artifact "config/config.php\n(.env)" as cfg
+    }
+    database "MariaDB 10.11\nnotary_queue (utf8mb4)" as db
+    folder "storage/logs/\n(журнали хато)" as logs
+}
+
+node "Хидмати беруна" as ext {
+    artifact "SMS-шлюз\n(огоҳиномаҳо)" as sms
+    artifact "SMTP-сервер\n(email)" as smtp
+}
+
+browser_client --> nginx : HTTPS :443
+browser_staff  --> nginx : HTTPS :443
+browser_kiosk  --> nginx : HTTPS :443
+browser_tv     --> nginx : HTTPS :443\n(навсозии худкор)
+nginx --> fpm : FastCGI\nunix:/run/php/php8.2-fpm.sock
+fpm --> db : PDO MySQL\n127.0.0.1:3306
+app ..> logs : навиштани журнал
+app ..> cfg : хондани танзимот
+fpm --> sms : HTTPS :443 (REST API)
+fpm --> smtp : SMTP/TLS :587
+@enduml
